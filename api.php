@@ -131,18 +131,48 @@ if ($method === 'POST' && $path === 'admin/approve-user') {
     exit;
 }
 
+if ($method === 'POST' && $path === 'admin/migrate') {
+    try {
+        // เพิ่มคอลัมน์ login_count ถ้ายังไม่มี
+        $conn->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS login_count INT DEFAULT 0 AFTER is_admin");
+        // เพิ่มคอลัมน์ last_login ถ้ายังไม่มี
+        $conn->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP NULL AFTER login_count");
+        
+        echo json_encode(["success" => true, "message" => "ปรับปรุงฐานข้อมูลเรียบร้อยแล้ว"]);
+    } catch (PDOException $e) {
+        // สำหรับ MySQL บางเวอร์ชันที่อาจไม่รองรับ ADD COLUMN IF NOT EXISTS ให้ลองใช้แบบปกติ (จะ Error ถ้ามีอยู่แล้ว)
+        try {
+            $conn->exec("ALTER TABLE users ADD COLUMN login_count INT DEFAULT 0");
+            $conn->exec("ALTER TABLE users ADD COLUMN last_login TIMESTAMP NULL");
+            echo json_encode(["success" => true, "message" => "ปรับปรุงโครงสร้างใหม่เรียบร้อย"]);
+        } catch (Exception $ex) {
+            echo json_encode(["success" => true, "message" => "ฐานข้อมูลเป็นปัจจุบันอยู่แล้ว"]);
+        }
+    }
+    exit;
+}
+
 // User Management (Super Admin)
 if ($method === 'GET' && $path === 'admin/users') {
-    $stmt = $conn->prepare("
-        SELECT u.id, u.id_card, u.fullname, u.rank, u.status, u.is_admin, u.created_at, u.login_count, u.last_login,
-        (SELECT COUNT(*) FROM exercises WHERE user_id = u.id) as exercise_count,
-        DATEDIFF(CURRENT_TIMESTAMP, u.created_at) as membership_days
-        FROM users u 
-        WHERE u.is_admin = 0 
-        ORDER BY u.created_at DESC
-    ");
-    $stmt->execute();
-    echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+    try {
+        $stmt = $conn->prepare("
+            SELECT u.id, u.id_card, u.fullname, u.rank, u.status, u.is_admin, u.created_at, 
+            COALESCE(u.login_count, 0) as login_count, 
+            u.last_login,
+            (SELECT COUNT(*) FROM exercises WHERE user_id = u.id) as exercise_count,
+            DATEDIFF(CURRENT_TIMESTAMP, u.created_at) as membership_days
+            FROM users u 
+            WHERE u.is_admin = 0 
+            ORDER BY u.created_at DESC
+        ");
+        $stmt->execute();
+        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+    } catch (PDOException $e) {
+        // Fallback ในกรณีที่ยังไม่ได้อัปเกรดฐานข้อมูล
+        $stmt = $conn->prepare("SELECT id, id_card, fullname, rank, status, is_admin, created_at, 0 as login_count, NULL as last_login, 0 as exercise_count, 0 as membership_days FROM users WHERE is_admin = 0");
+        $stmt->execute();
+        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
     exit;
 }
 

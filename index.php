@@ -260,11 +260,17 @@
 
             <!-- Admin Tab -->
             <div x-show="activeTab === 'admin' && user && user.is_admin" class="space-y-6">
-                <div class="flex items-center justify-between">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <h2 class="text-xl font-bold flex items-center gap-2"><i data-lucide="users" class="w-5 h-5"></i> ระบบจัดการสมาชิก</h2>
-                    <div class="flex bg-slate-200 p-1 rounded-lg">
-                        <button @click="adminView = 'pending'" :class="adminView === 'pending' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'" class="px-4 py-1.5 rounded-md text-xs font-bold">รอการอนุมัติ</button>
-                        <button @click="adminView = 'all'" :class="adminView === 'all' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'" class="px-4 py-1.5 rounded-md text-xs font-bold">สมาชิกทั้งหมด</button>
+                    
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button @click="updateDatabase()" class="bg-amber-100 hover:bg-amber-200 text-amber-700 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all">
+                            <i data-lucide="database" class="w-4 h-4"></i> ปรับปรุงฐานข้อมูล
+                        </button>
+                        <div class="flex bg-slate-200 p-1 rounded-lg">
+                            <button @click="adminView = 'pending'" :class="adminView === 'pending' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'" class="px-4 py-1.5 rounded-md text-xs font-bold">รอการอนุมัติ</button>
+                            <button @click="adminView = 'all'" :class="adminView === 'all' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'" class="px-4 py-1.5 rounded-md text-xs font-bold">สมาชิกทั้งหมด</button>
+                        </div>
                     </div>
                 </div>
 
@@ -303,7 +309,7 @@
                                                 <div class="flex items-center gap-2">
                                                     <p class="font-bold text-slate-800" x-text="p.fullname"></p>
                                                     <span :class="p.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'" 
-                                                          class="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase" x-text="p.status"></span>
+                                                          class="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase" x-text="p.status === 'approved' ? 'พร้อมใช้งาน' : 'ระงับการใช้งาน'"></span>
                                                 </div>
                                                 <p class="text-xs text-slate-500" x-text="p.rank + ' | ID: ' + p.id_card"></p>
                                             </div>
@@ -331,16 +337,23 @@
                                             </div>
 
                                             <div class="flex gap-2">
-                                                <button @click="deleteUser(p.id)" class="p-2 text-slate-300 hover:text-red-500 transition-colors">
+                                                <template x-if="p.status === 'approved'">
+                                                    <button @click="updateStatus(p.id, 'rejected')" title="ระงับการใช้งาน" class="p-2 text-slate-400 hover:text-amber-600 transition-colors">
+                                                        <i data-lucide="user-x" class="w-5 h-5"></i>
+                                                    </button>
+                                                </template>
+                                                <template x-if="p.status !== 'approved'">
+                                                    <button @click="updateStatus(p.id, 'approved')" title="อนุมัติการใช้งาน" class="p-2 text-slate-400 hover:text-indigo-600 transition-colors">
+                                                        <i data-lucide="user-check" class="w-5 h-5"></i>
+                                                    </button>
+                                                </template>
+                                                <button @click="deleteUser(p.id)" title="ลบถาวร" class="p-2 text-slate-300 hover:text-red-500 transition-colors">
                                                     <i data-lucide="trash-2" class="w-5 h-5"></i>
                                                 </button>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                            </template>
-                            <template x-if="allUsers.length === 0">
-                                <div class="py-20 text-center text-slate-300">ยังไม่มีสมาชิกในระบบ</div>
                             </template>
                         </div>
                     </template>
@@ -352,6 +365,21 @@
     <script>
         function app() {
             return {
+                // ... (previous state)
+                
+                async updateDatabase() {
+                    if (!confirm('คุณต้องการปรับปรุงโครงสร้างฐานข้อมูลใช่หรือไม่?')) return;
+                    this.loading = true;
+                    try {
+                        const res = await fetch('api.php?path=admin/migrate', { method: 'POST' });
+                        const data = await res.json();
+                        alert(data.message);
+                        this.fetchAdminData();
+                    } catch (e) { alert('เกิดข้อผิดพลาดในการปรับปรุงฐานข้อมูล'); }
+                    finally { this.loading = false; }
+                },
+
+                // ... (rest of methods)
                 user: null,
                 activeTab: 'create',
                 authMode: 'login',
