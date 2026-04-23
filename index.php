@@ -314,27 +314,45 @@
                           ]
                         }`;
 
-                        // ใช้ VERSION v1 (Stable) เพื่อความแน่นอนสูงสุด
-                        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-                        const response = await fetch(url, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                contents: [{ parts: [{ text: fullPrompt }] }]
-                            })
-                        });
+                        // รายชื่อ Model ที่จะลองเรียก (ลองทีละตัวจนกว่าจะผ่าน)
+                        const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+                        let errorLog = '';
+                        let success = false;
 
-                        const resData = await response.json();
-                        if (!response.ok) throw new Error(resData.error?.message || 'AI API Error');
+                        for (const modelName of modelsToTry) {
+                            try {
+                                const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+                                const response = await fetch(url, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        contents: [{ parts: [{ text: fullPrompt }] }]
+                                    })
+                                });
 
-                        let aiText = resData.candidates[0].content.parts[0].text;
-                        // ลบ markdown wrapper ถ้ามี
-                        aiText = aiText.replace(/```json/g, '').replace(/```/g, '').trim();
-                        
-                        this.currentSet = JSON.parse(aiText);
-                        this.currentSet.subject = this.config.subject;
-                        this.currentSet.level = this.config.level;
-                        this.$nextTick(() => lucide.createIcons());
+                                const resData = await response.json();
+                                if (!response.ok) {
+                                    errorLog += `\n- ${modelName}: ${resData.error?.message || 'Error'}`;
+                                    continue; // ลองตัวถัดไป
+                                }
+
+                                let aiText = resData.candidates[0].content.parts[0].text;
+                                aiText = aiText.replace(/```json/g, '').replace(/```/g, '').trim();
+                                
+                                this.currentSet = JSON.parse(aiText);
+                                this.currentSet.subject = this.config.subject;
+                                this.currentSet.level = this.config.level;
+                                this.$nextTick(() => lucide.createIcons());
+                                success = true;
+                                break; // สำเร็จแล้ว หยุดวนลูบ
+                            } catch (err) {
+                                errorLog += `\n- ${modelName}: ${err.message}`;
+                            }
+                        }
+
+                        if (!success) {
+                            throw new Error('ไม่สามารถเข้าถึง AI รุ่นใดได้เลย:' + errorLog);
+                        }
                         
                     } catch (e) {
                         alert('เกิดข้อผิดพลาด: ' + e.message);
