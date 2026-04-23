@@ -39,14 +39,22 @@
             </div>
 
             <div class="flex items-center gap-4" x-show="user">
-                <button @click="activeTab = 'create'" :class="activeTab === 'create' ? 'text-indigo-600 font-bold' : 'text-slate-500'" class="text-sm">สร้างใบงาน</button>
-                <button @click="activeTab = 'history'" :class="activeTab === 'history' ? 'text-indigo-600 font-bold' : 'text-slate-500'" class="text-sm">ประวัติ</button>
-                <button @click="activeTab = 'profile'" :class="activeTab === 'profile' ? 'text-indigo-600 font-bold' : 'text-slate-500'" class="text-sm">ข้อมูลส่วนตัว</button>
+                <!-- Teacher Menus -->
+                <template x-if="user && !user.is_admin">
+                    <div class="flex items-center gap-4">
+                        <button @click="activeTab = 'create'" :class="activeTab === 'create' ? 'text-indigo-600 font-bold' : 'text-slate-500'" class="text-sm">สร้างใบงาน</button>
+                        <button @click="activeTab = 'history'" :class="activeTab === 'history' ? 'text-indigo-600 font-bold' : 'text-slate-500'" class="text-sm">ประวัติ</button>
+                        <button @click="activeTab = 'profile'" :class="activeTab === 'profile' ? 'text-indigo-600 font-bold' : 'text-slate-500'" class="text-sm">ข้อมูลส่วนตัว</button>
+                    </div>
+                </template>
+
+                <!-- Admin Menus -->
                 <template x-if="user && user.is_admin">
                     <button @click="activeTab = 'admin'" :class="activeTab === 'admin' ? 'text-indigo-600 font-bold' : 'text-slate-500'" class="text-sm flex items-center gap-1">
-                        จัดการครู <span class="bg-red-500 text-white text-[10px] px-1 rounded-full" x-show="pendingCount > 0" x-text="pendingCount"></span>
+                        จัดการรายชื่อครู <span class="bg-red-500 text-white text-[10px] px-1 rounded-full" x-show="pendingCount > 0" x-text="pendingCount"></span>
                     </button>
                 </template>
+
                 <div class="h-8 w-px bg-slate-200"></div>
                 <div class="flex items-center gap-3">
                     <div class="text-right hidden sm:block">
@@ -487,10 +495,14 @@
                     if (saved) {
                         this.user = JSON.parse(saved);
                         this.syncProfileForm();
-                        this.fetchHistory();
+                        
                         if (this.user.is_admin) {
+                            this.activeTab = 'admin'; // Admin ไปหน้าจัดการทันที
                             this.fetchAdminData();
                             setInterval(() => this.fetchAdminData(), 30000);
+                        } else {
+                            this.activeTab = 'create'; // ครูไปหน้าสร้างทันที
+                            this.fetchHistory();
                         }
                     }
                     this.$nextTick(() => lucide.createIcons());
@@ -519,8 +531,14 @@
                             this.user = data;
                             this.syncProfileForm();
                             localStorage.setItem('schoolos_user', JSON.stringify(data));
-                            this.fetchHistory();
-                            if (this.user.is_admin) this.fetchAdminData();
+                            
+                            if (this.user.is_admin) {
+                                this.activeTab = 'admin';
+                                this.fetchAdminData();
+                            } else {
+                                this.activeTab = 'create';
+                                this.fetchHistory();
+                            }
                         } else { this.error = data.error; }
                     } finally { 
                         this.loading = false;
