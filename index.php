@@ -291,25 +291,21 @@
                     const apiKey = this.user.gemini_api_key;
                     if (!apiKey) return alert('กรุณาระบุ Gemini API Key ในหน้าข้อมูลส่วนตัวก่อนใช้งาน');
                     
-                    // ป้องกันการใช้คีย์ตัวปัญหาเดิม
-                    if (apiKey.includes('dmhRSY')) {
-                        return alert('ตรวจพบว่าคุณกำลังใช้ API Key เดิมที่ถูกระงับ (ลงท้ายด้วย dmhRSY) \nกรุณาเปลี่ยนเป็นคีย์ใหม่ในหน้าข้อมูลส่วนตัวก่อนครับ');
-                    }
-
                     this.loading = true;
                     try {
                         const typesStr = this.config.types.join(", ");
-                        const systemInstruction = `คุณคือผู้เชี่ยวชาญด้านการสร้างเนื้อหาการศึกษาไทย สร้างแบบฝึกหัดภาษาไทยตามหลักสูตรแกนกลาง ให้ตอบกลับเป็น JSON ภาษาไทยเท่านั้น`;
-                        const fullPrompt = `สร้างแบบฝึกหัดเรื่อง: '${this.config.topic}' สำหรับระดับชั้น: ${this.config.level} วิชา: ${this.config.subject}
-                        รูปแบบโจทย์: ${typesStr} | จำนวน: 10 ข้อ
-                        โครงสร้าง JSON:
+                        const fullPrompt = `คุณคือผู้เชี่ยวชาญการศึกษาไทย 
+                        ภารกิจ: สร้างแบบฝึกหัดเรื่อง '${this.config.topic}' ชั้น ${this.config.level} วิชา ${this.config.subject}
+                        รูปแบบ: ${typesStr} | จำนวน: 10 ข้อ
+                        
+                        ให้ตอบกลับเป็น JSON ภาษาไทยที่มีโครงสร้างดังนี้เท่านั้น (ห้ามมีข้อความอื่นนอกเหนือจาก JSON):
                         {
                           "title": "หัวข้อ",
                           "description": "คำชี้แจง",
                           "indicators": "ตัวชี้วัด",
                           "questions": [
                             {
-                              "type": "ประเภท",
+                              "type": "ประเภทของข้อสอบ",
                               "question": "โจทย์",
                               "options": [{"id":"a", "text":"ตัวเลือก"}],
                               "answer": "เฉลย",
@@ -318,29 +314,30 @@
                           ]
                         }`;
 
-                        // ใช้รุ่น v1 (Stable)
-                        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+                        // ใช้ VERSION v1beta พร้อม Prompt ที่รวมร่างแล้วเพื่อความแน่นอน
+                        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
                         const response = await fetch(url, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                contents: [{ parts: [{ text: fullPrompt }] }],
-                                systemInstruction: { parts: [{ text: systemInstruction }] },
-                                generationConfig: { response_mime_type: "application/json" }
+                                contents: [{ parts: [{ text: fullPrompt }] }]
                             })
                         });
 
                         const resData = await response.json();
                         if (!response.ok) throw new Error(resData.error?.message || 'AI API Error');
 
-                        const aiText = resData.candidates[0].content.parts[0].text;
+                        let aiText = resData.candidates[0].content.parts[0].text;
+                        // ลบ markdown wrapper ถ้ามี
+                        aiText = aiText.replace(/```json/g, '').replace(/```/g, '').trim();
+                        
                         this.currentSet = JSON.parse(aiText);
                         this.currentSet.subject = this.config.subject;
                         this.currentSet.level = this.config.level;
                         this.$nextTick(() => lucide.createIcons());
                         
                     } catch (e) {
-                        alert('เกิดข้อผิดพลาด: ' + e.message + '\n\nคีย์ที่คุณกำลังใช้คือ: ' + apiKey.substring(0,6) + '...' + apiKey.substring(apiKey.length - 4));
+                        alert('เกิดข้อผิดพลาด: ' + e.message);
                     } finally {
                         this.loading = false;
                     }
