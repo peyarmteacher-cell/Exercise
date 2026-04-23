@@ -116,10 +116,28 @@
             </div>
         </div>
 
-        <!-- Dashboard / Main Interface -->
-        <div x-show="user" x-cloak class="h-full">
+    <!-- Dashboard / Main Interface -->
+    <div x-show="user" x-cloak class="h-full">
+        
+        <!-- Admin Notification Banner (Visible to Super Admin only) -->
+        <template x-if="user && user.is_admin && pendingCount > 0">
+            <div class="mb-6 bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between animate-pulse">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-amber-500 text-white rounded-lg">
+                        <i data-lucide="user-plus" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-amber-900 text-sm">มีการขออนุมัติการใช้งานใหม่</h4>
+                        <p class="text-amber-700 text-xs" x-text="'มีคุณครูจำนวน ' + pendingCount + ' ท่านรอการตรวจสอบและอนุมัติจากคุณ'"></p>
+                    </div>
+                </div>
+                <button @click="activeTab = 'admin'; adminView = 'pending'" class="bg-amber-100 hover:bg-amber-200 text-amber-700 px-4 py-2 rounded-xl text-xs font-bold transition-colors">
+                    ไปที่หน้าจัดการ
+                </button>
+            </div>
+        </template>
             
-            <!-- Create Tab -->
+        <!-- Create Tab -->
             <div x-show="activeTab === 'create'" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 <!-- Sidebar Settings -->
                 <aside class="lg:col-span-3 space-y-6 no-print">
@@ -322,7 +340,11 @@
                     if (saved) {
                         this.user = JSON.parse(saved);
                         this.fetchHistory();
-                        if (this.user.is_admin) this.fetchAdminData();
+                        if (this.user.is_admin) {
+                            this.fetchAdminData();
+                            // ตรวจสอบสมาชิกใหม่ทุกๆ 30 วินาที
+                            setInterval(() => this.fetchAdminData(), 30000);
+                        }
                     }
                 },
 
