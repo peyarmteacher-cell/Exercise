@@ -314,8 +314,8 @@
                           ]
                         }`;
 
-                        // ใช้ VERSION v1beta พร้อม Prompt ที่รวมร่างแล้วเพื่อความแน่นอน
-                        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+                        // ใช้ VERSION v1 (Stable) เพื่อความแน่นอนสูงสุด
+                        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
                         const response = await fetch(url, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
