@@ -128,13 +128,24 @@ if ($method === 'POST' && $path === 'login') {
 // Update Profile
 if ($method === 'POST' && $path === 'user/update-profile') {
     $data = json_decode(file_get_contents("php://input"));
-    $stmt = $conn->prepare("UPDATE users SET fullname = ?, rank = ?, password = ?, gemini_api_key = ? WHERE id = ?");
-    $stmt->execute([$data->fullname, $data->rank, $data->password, $data->gemini_api_key, $data->id]);
+    
+    if (!empty($data->password)) {
+        $stmt = $conn->prepare("UPDATE users SET fullname = ?, rank = ?, password = ?, gemini_api_key = ? WHERE id = ?");
+        $stmt->execute([$data->fullname, $data->rank, $data->password, $data->gemini_api_key, $data->id]);
+    } else {
+        $stmt = $conn->prepare("UPDATE users SET fullname = ?, rank = ?, gemini_api_key = ? WHERE id = ?");
+        $stmt->execute([$data->fullname, $data->rank, $data->gemini_api_key, $data->id]);
+    }
     
     // Fetch fresh data
     $get = $conn->prepare("SELECT * FROM users WHERE id = ?");
     $get->execute([$data->id]);
     $user = $get->fetch(PDO::FETCH_ASSOC);
+    
+    // Cast types for JS safety
+    $user['is_admin'] = (int)$user['is_admin'];
+    $user['login_count'] = (int)$user['login_count'];
+    
     unset($user['password']);
     echo json_encode($user);
     exit;
