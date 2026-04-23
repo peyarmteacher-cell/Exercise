@@ -282,32 +282,67 @@
 
                 async generateAI() {
                     if (!this.config.topic) return alert('กรุณาระบุหัวข้อ');
+                    const apiKey = this.user.gemini_api_key;
+                    if (!apiKey) return alert('กรุณาระบุ Gemini API Key ในหน้าข้อมูลส่วนตัวก่อนใช้งาน');
+                    
                     this.loading = true;
                     try {
-                        const payload = { ...this.config, userId: this.user.id };
-                        const res = await fetch('api.php?path=generate', {
+                        const typesStr = this.config.types.join(", ");
+                        const systemInstruction = `คุณคือผู้เชี่ยวชาญด้านการสร้างเนื้อหาการศึกษาไทย สร้างแบบฝึกหัดภาษาไทยตามหลักสูตรแกนกลาง ให้ระบุตัวชี้วัดเบื้องต้น และคำอธิบายคำตอบที่ชัดเจน`;
+                        const fullPrompt = `สร้างแบบฝึกหัดเรื่อง: '${this.config.topic}' สำหรับระดับชั้น: ${this.config.level} วิชา: ${this.config.subject} ระดับความยาก: ${this.config.difficulty}
+                        รูปแบบโจทย์: ${typesStr} | จำนวน: 10 ข้อ
+                        ให้ตอบกลับเป็น JSON ภาษาไทยที่มีโครงสร้างดังนี้:
+                        {
+                          "title": "หัวข้อใบงาน",
+                          "description": "คำชี้แจง",
+                          "indicators": "มาตรฐาน/ตัวชี้วัด",
+                          "questions": [
+                            {
+                              "type": "ประเภทโจทย์ (multiple_choice|subjective|matching|fill_in_the_blanks)",
+                              "question": "โจทย์",
+                              "options": [{"id":"a", "text":"ตัวเลือก"}],
+                              "pairs": [{"left":"ซ้าย", "right":"ขวา"}],
+                              "answer": "เฉลย",
+                              "explanation": "คำอธิบาย"
+                            }
+                          ]
+                        }`;
+
+                        // เรียกตรงไปยัง Google API จากเบราว์เซอร์ (Client-side)
+                        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+                        const response = await fetch(url, {
                             method: 'POST',
-                            body: JSON.stringify(payload)
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: [{ parts: [{ text: fullPrompt }] }],
+                                systemInstruction: { parts: [{ text: systemInstruction }] },
+                                generationConfig: {
+                                    response_mime_type: "application/json"
+                                }
+                            })
                         });
-                        const data = await res.json();
-                        if (data.error) {
-                            let msg = typeof data.error === 'string' ? data.error : 'AI Generation failed';
-                            if (data.details?.error?.message) msg += ': ' + data.details.error.message;
-                            
-                            let debug = `\n\n--- Debug Info ---`;
-                            debug += `\nSource: ${data.key_source === 'user' ? 'คีย์ส่วนตัวของคุณครู' : 'คีย์หลักของระบบ'}`;
-                            if (data.attempted_key) debug += `\nKey Used: ${data.attempted_key}`;
-                            if (data.received_user_id) debug += `\nUser ID: ${data.received_user_id}`;
-                            
-                            alert('เกิดข้อผิดพลาด: ' + msg + debug);
-                        } else {
-                            this.currentSet = data;
-                            this.currentSet.subject = this.config.subject;
-                            this.currentSet.level = this.config.level;
-                            this.$nextTick(() => lucide.createIcons());
+
+                        const resData = await response.json();
+                        
+                        if (!response.ok) {
+                            throw new Error(resData.error?.message || 'AI API Error');
                         }
-                    } catch (e) { alert('AI ไม่สามารถสร้างข้อมูลได้ในขณะนี้ กรุณาตรวจสอบ API Key ของคุณ'); }
-                    finally { this.loading = false; }
+
+                        const aiText = resData.candidates[0].content.parts[0].text;
+                        const exerciseData = JSON.parse(aiText);
+
+                        this.currentSet = exerciseData;
+                        this.currentSet.subject = this.config.subject;
+                        this.currentSet.level = this.config.level;
+                        
+                        this.$nextTick(() => lucide.createIcons());
+                        
+                    } catch (e) {
+                        console.error(e);
+                        alert('เกิดข้อผิดพลาดในการเรียก AI: ' + e.message + '\nกรุณาตรวจสอบความถูกต้องของ API Key และโควต้าใช้งานของคุณ');
+                    } finally {
+                        this.loading = false;
+                    }
                 },
 
                 async saveSet() {
