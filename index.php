@@ -147,7 +147,7 @@
         </template>
             
         <!-- Create Tab -->
-            <div x-show="activeTab === 'create'" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <div x-show="activeTab === 'create' && user && !user.is_admin" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 <!-- Sidebar Settings -->
                 <aside class="lg:col-span-3 space-y-6 no-print">
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -493,16 +493,23 @@
                 async init() {
                     const saved = localStorage.getItem('schoolos_user');
                     if (saved) {
-                        this.user = JSON.parse(saved);
-                        this.syncProfileForm();
-                        
-                        if (this.user.is_admin) {
-                            this.activeTab = 'admin'; // Admin ไปหน้าจัดการทันที
-                            this.fetchAdminData();
-                            setInterval(() => this.fetchAdminData(), 30000);
-                        } else {
-                            this.activeTab = 'create'; // ครูไปหน้าสร้างทันที
-                            this.fetchHistory();
+                        try {
+                            this.user = JSON.parse(saved);
+                            // บังคับให้เป็น Number เพื่อป้องกันบั๊ก String "0"
+                            this.user.is_admin = Number(this.user.is_admin);
+                            
+                            this.syncProfileForm();
+                            
+                            if (this.user.is_admin === 1) {
+                                this.activeTab = 'admin';
+                                this.fetchAdminData();
+                                setInterval(() => this.fetchAdminData(), 30000);
+                            } else {
+                                this.activeTab = 'create';
+                                this.fetchHistory();
+                            }
+                        } catch (e) {
+                            localStorage.removeItem('schoolos_user');
                         }
                     }
                     this.$nextTick(() => lucide.createIcons());

@@ -115,6 +115,10 @@ if ($method === 'POST' && $path === 'login') {
     $upd = $conn->prepare("UPDATE users SET login_count = login_count + 1, last_login = CURRENT_TIMESTAMP WHERE id = ?");
     $upd->execute([$user['id']]);
     
+    // Cast types for JS safety
+    $user['is_admin'] = (int)$user['is_admin'];
+    $user['login_count'] = (int)$user['login_count'];
+    
     // Safety: don't send password
     unset($user['password']);
     echo json_encode($user);
