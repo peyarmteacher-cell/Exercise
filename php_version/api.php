@@ -6,9 +6,9 @@ header("Content-Type: application/json; charset=UTF-8");
 
 // --- Database Configuration ---
 $host = "localhost";
-$db_name = "school_exercises";
-$username = "root";
-$password = "";
+$db_name = "schoolos_Exercise";
+$username = "schoolos_Exercise";
+$password = "!deQn5cB?B7gabu8";
 
 try {
     $conn = new PDO("mysql:host=" . $host . ";dbname=" . $db_name . ";charset=utf8", $username, $password);
@@ -116,6 +116,30 @@ if ($method === 'GET' && $path === 'admin/pending-users') {
 }
 
 if ($method === 'POST' && $path === 'admin/approve-user') {
+    $data = json_decode(file_get_contents("php://input"));
+    $stmt = $conn->prepare("UPDATE users SET status = ? WHERE id = ?");
+    $stmt->execute([$data->status, $data->id]);
+    echo json_encode(["success" => true]);
+    exit;
+}
+
+// User Management (Super Admin)
+if ($method === 'GET' && $path === 'admin/users') {
+    $stmt = $conn->prepare("SELECT id, id_card, fullname, rank, status, is_admin, created_at FROM users WHERE is_admin = 0 ORDER BY created_at DESC");
+    $stmt->execute();
+    echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+    exit;
+}
+
+if ($method === 'DELETE' && preg_match('/admin\/users\/(\d+)/', $path, $matches)) {
+    $id = $matches[1];
+    $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
+    $stmt->execute([$id]);
+    echo json_encode(["success" => true]);
+    exit;
+}
+
+if ($method === 'POST' && $path === 'admin/update-user-status') {
     $data = json_decode(file_get_contents("php://input"));
     $stmt = $conn->prepare("UPDATE users SET status = ? WHERE id = ?");
     $stmt->execute([$data->status, $data->id]);

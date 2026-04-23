@@ -85,6 +85,22 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  app.get("/api/admin/all-users", (req, res) => {
+    const users = db.prepare("SELECT id, id_card, fullname, rank, status, created_at FROM users WHERE is_admin = 0 ORDER BY created_at DESC").all();
+    res.json(users);
+  });
+
+  app.delete("/api/admin/users/:id", (req, res) => {
+    db.prepare("DELETE FROM users WHERE id = ?").run(req.params.id);
+    res.json({ success: true });
+  });
+
+  app.post("/api/admin/update-user-status", (req, res) => {
+    const { id, status } = req.body;
+    db.prepare("UPDATE users SET status = ? WHERE id = ?").run(status, id);
+    res.json({ success: true });
+  });
+
   // --- Exercise Routes (Filtered by user) ---
   app.get("/api/exercises", (req, res) => {
     const userId = req.query.userId;

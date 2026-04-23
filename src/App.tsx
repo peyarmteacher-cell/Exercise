@@ -30,12 +30,17 @@ export default function App() {
   const [currentExercise, setCurrentExercise] = useState<ExerciseSet | null>(null);
   const [savedExercises, setSavedExercises] = useState<any[]>([]);
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [adminSubTab, setAdminSubTab] = useState<'pending' | 'users'>('pending');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
       fetchSaved();
-      if (user.is_admin) fetchPendingUsers();
+      if (user.is_admin) {
+        fetchPendingUsers();
+        fetchAllUsers();
+      }
     }
   }, [user]);
 
@@ -54,7 +59,17 @@ export default function App() {
     try {
       const res = await fetch('/api/admin/pending-users');
       const data = await res.json();
-      setPendingUsers(data);
+      setPendingUsers(data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchAllUsers = async () => {
+    try {
+      const res = await fetch('/api/admin/all-users');
+      const data = await res.json();
+      setAllUsers(data || []);
     } catch (err) {
       console.error(err);
     }
@@ -110,8 +125,34 @@ export default function App() {
         body: JSON.stringify({ id, status })
       });
       fetchPendingUsers();
+      fetchAllUsers();
     } catch (err) {
       alert('เกิดข้อผิดพลาด');
+    }
+  };
+
+  const handleUpdateUserStatus = async (id: number, status: string) => {
+    try {
+      await fetch('/api/admin/update-user-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status })
+      });
+      fetchAllUsers();
+      fetchPendingUsers();
+    } catch (err) {
+      alert('เกิดข้อผิดพลาด');
+    }
+  };
+
+  const handleDeleteUser = async (id: number) => {
+    if (!confirm('คุณต้องการลบข้อมูลสมาชิกรวมถึงใบงานทั้งหมดของสมาชิกท่านนี้ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้')) return;
+    try {
+      await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+      fetchAllUsers();
+      fetchPendingUsers();
+    } catch (err) {
+      alert('ไม่สามารถลบข้อมูลได้');
     }
   };
 
@@ -598,55 +639,129 @@ export default function App() {
               className="flex-1 overflow-y-auto no-scrollbar px-2"
             >
               <div className="bg-white rounded-2xl shadow-polish border border-slate-200 overflow-hidden">
-                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                   <div>
-                     <h2 className="text-lg font-bold text-slate-800">จัดการการอนุมัติคุณครู</h2>
-                     <p className="text-sm text-slate-500">คำขอลงทะเบียนใหม่ที่รอการตรวจสอบ ({pendingUsers.length})</p>
+                <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                   <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center text-amber-500">
+                        <UserIcon size={20} />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-bold text-slate-800">ระบบจัดการผู้ดูแล (Super Admin)</h2>
+                        <p className="text-sm text-slate-500">จัดการการอนุมัติและสมาชิกทั้งหมดในระบบ</p>
+                      </div>
                    </div>
-                   <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center text-amber-500">
-                      <UserIcon size={20} />
+                   
+                   <div className="flex bg-slate-100 p-1 rounded-lg no-print">
+                      <button 
+                        onClick={() => setAdminSubTab('pending')}
+                        className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${adminSubTab === 'pending' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                      >
+                        รอการอนุมัติ
+                        {pendingUsers.length > 0 && <span className="bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">{pendingUsers.length}</span>}
+                      </button>
+                      <button 
+                        onClick={() => setAdminSubTab('users')}
+                        className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${adminSubTab === 'users' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                      >
+                        จัดการสมาชิกทั้งหมด
+                      </button>
                    </div>
                 </div>
                 
                 <div className="divide-y divide-slate-100">
-                  {pendingUsers.length === 0 ? (
-                    <div className="py-20 text-center text-slate-400">
-                       <p className="text-sm">ไม่มีคำขอที่รอการอนุมัติในขณะนี้</p>
-                    </div>
-                  ) : (
-                    pendingUsers.map((p) => (
-                      <div key={p.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors">
-                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 border border-slate-200 uppercase font-bold text-lg">
-                               {p.fullname.charAt(0)}
-                            </div>
-                            <div>
-                               <p className="font-bold text-slate-800">{p.fullname}</p>
-                               <div className="flex gap-3 text-xs text-slate-500 mt-1">
-                                  <span>ID: {p.id_card}</span>
-                                  <span>•</span>
-                                  <span className="text-indigo-600 font-medium">{p.rank}</span>
-                                  <span>•</span>
-                                  <span>สมัครเมื่อ: {new Date(p.created_at).toLocaleDateString('th-TH')}</span>
-                               </div>
-                            </div>
-                         </div>
-                         <div className="flex items-center gap-2">
-                            <button 
-                              onClick={() => handleApprove(p.id, 'approved')}
-                              className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-700 transition-all"
-                            >
-                              อนุมัติ
-                            </button>
-                            <button 
-                              onClick={() => handleApprove(p.id, 'rejected')}
-                              className="px-4 py-2 bg-white border border-slate-200 text-red-500 rounded-lg text-sm font-bold shadow-sm hover:bg-red-50 transition-all"
-                            >
-                              ไม่อนุมัติ
-                            </button>
-                         </div>
+                  {adminSubTab === 'pending' ? (
+                    pendingUsers.length === 0 ? (
+                      <div className="py-20 text-center text-slate-400">
+                         <p className="text-sm">ไม่มีคำขอที่รอการอนุมัติในขณะนี้</p>
                       </div>
-                    ))
+                    ) : (
+                      pendingUsers.map((p) => (
+                        <div key={p.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors">
+                           <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 border border-indigo-100 uppercase font-bold text-lg">
+                                 {p.fullname.charAt(0)}
+                              </div>
+                              <div>
+                                 <p className="font-bold text-slate-800">{p.fullname}</p>
+                                 <div className="flex flex-wrap gap-2 text-[10px] text-slate-500 mt-1">
+                                    <span className="bg-slate-100 px-1.5 py-0.5 rounded">ID: {p.id_card}</span>
+                                    <span className="bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-bold">{p.rank}</span>
+                                    <span className="bg-slate-100 px-1.5 py-0.5 rounded italic">{new Date(p.created_at).toLocaleDateString('th-TH')}</span>
+                                 </div>
+                              </div>
+                           </div>
+                           <div className="flex items-center gap-2">
+                              <button 
+                                onClick={() => handleApprove(p.id, 'approved')}
+                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-700 transition-all"
+                              >
+                                อนุมัติ
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteUser(p.id)}
+                                className="px-4 py-2 bg-white border border-slate-200 text-red-500 rounded-lg text-sm font-bold shadow-sm hover:bg-red-50 transition-all"
+                              >
+                                ลบออก
+                              </button>
+                           </div>
+                        </div>
+                      ))
+                    )
+                  ) : (
+                    allUsers.length === 0 ? (
+                      <div className="py-20 text-center text-slate-400">
+                         <p className="text-sm">ยังไม่มีสมาชิกในระบบ</p>
+                      </div>
+                    ) : (
+                      allUsers.map((p) => (
+                        <div key={p.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors">
+                           <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 border border-slate-200 uppercase font-bold text-base">
+                                 {p.fullname.charAt(0)}
+                              </div>
+                              <div>
+                                 <div className="flex items-center gap-2">
+                                   <p className="font-bold text-slate-800">{p.fullname}</p>
+                                   <span className={`text-[9px] font-bold uppercase py-0.5 px-2 rounded-full ${
+                                      p.status === 'approved' ? 'bg-green-100 text-green-700' : 
+                                      p.status === 'pending' ? 'bg-amber-100 text-amber-700' : 
+                                      'bg-red-100 text-red-700'
+                                   }`}>
+                                     {p.status}
+                                   </span>
+                                 </div>
+                                 <div className="flex flex-wrap gap-2 text-[10px] text-slate-500 mt-1">
+                                    <span>{p.id_card}</span>
+                                    <span>•</span>
+                                    <span>{p.rank}</span>
+                                 </div>
+                              </div>
+                           </div>
+                           <div className="flex items-center gap-2">
+                              {p.status === 'approved' ? (
+                                <button 
+                                  onClick={() => handleUpdateUserStatus(p.id, 'rejected')}
+                                  className="px-3 py-1.5 bg-amber-50 text-amber-600 rounded text-[10px] font-bold uppercase tracking-wider hover:bg-amber-100 transition-colors"
+                                >
+                                  ระงับการใช้งาน
+                                </button>
+                              ) : (
+                                <button 
+                                  onClick={() => handleUpdateUserStatus(p.id, 'approved')}
+                                  className="px-3 py-1.5 bg-green-50 text-green-600 rounded text-[10px] font-bold uppercase tracking-wider hover:bg-green-100 transition-colors"
+                                >
+                                  อนุมัติ
+                                </button>
+                              )}
+                              <button 
+                                onClick={() => handleDeleteUser(p.id)}
+                                className="px-3 py-1.5 bg-red-50 text-red-500 rounded text-[10px] font-bold uppercase tracking-wider hover:bg-red-100 transition-colors"
+                              >
+                                ลบสมาชิก
+                              </button>
+                           </div>
+                        </div>
+                      ))
+                    )
                   )}
                 </div>
               </div>
