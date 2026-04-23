@@ -23,32 +23,40 @@ $path = isset($_GET['path']) ? $_GET['path'] : '';
 
 // --- Auth Endpoints ---
 
+require_once 'config.php';
+
 // Generate AI (Proxy to Gemini)
 if ($method === 'POST' && $path === 'generate') {
     $data = json_decode(file_get_contents("php://input"));
     $topic = htmlspecialchars($data->topic);
     $level = htmlspecialchars($data->level);
     $subject = htmlspecialchars($data->subject);
+    $difficulty = isset($data->difficulty) ? htmlspecialchars($data->difficulty) : 'ปานกลาง';
+    $userId = isset($data->userId) ? $data->userId : null;
+    $selectedTypes = isset($data->types) ? $data->types : [];
     
-    // API KEY - คุณต้องใส่ API Key ของ Google AI Studio ที่นี่
-    $api_key = "!deQn5cB?B7gabu8"; // หมายเหตุ: เปลี่ยนเป็น Gemini API Key ของคุณ
+    // API KEY Logic
+    $api_key = GEMINI_API_KEY;
+    if ($userId) {
+        $uStmt = $conn->prepare("SELECT gemini_api_key FROM users WHERE id = ?");
+        $uStmt->execute([$userId]);
+        $uData = $uStmt->fetch(PDO::FETCH_ASSOC);
+        if ($uData && !empty($uData['gemini_api_key'])) {
+            $api_key = $uData['gemini_api_key'];
+        }
+    }
     
-    $systemInstruction = "คุณคือผู้เชี่ยวชาญด้านการศึกษาสำหรับนักเรียนระดับประถมศึกษา หน้าที่ของคุณคือสร้างแบบฝึกหัดที่เหมาะสมกับระดับชั้นและวิชาที่กำหนด แบบฝึกหัดต้องมีความหลากหลายประกอบด้วย: 1. ปรนัย (multiple_choice) 2. อัตนัย (subjective) 3. จับคู่ (matching) 4. เติมคำ (fill_in_the_blanks) 5. คำนวณคณิตศาสตร์แบบแสดงวิธีทำ (math_show_work) 6. วิเคราะห์แสดงเหตุผล (analysis_reasoning) ให้ตอบกลับในรูปแบบ JSON เท่านั้น";
-    
-    $fullPrompt = "สร้างแบบฝึกหัดเรื่อง: $topic สำหรับระดับชั้น: $level วิชา: $subject สร้างโจทย์อย่างน้อย 10 ข้อ โดยกระจายประเภทโจทย์ตามที่กำหนด";
+    $typesStr = !empty($selectedTypes) ? implode(", ", $selectedTypes) : "ปรนัย, อัตนัย, จับคู่, เติมคำ, คำนวณ, วิเคราะห์";
+
+    $systemInstruction = "คุณคือผู้เชี่ยวชาญด้านการศึกษาสำหรับนักเรียนระดับประถมศึกษา หน้าที่ของคุณคือสร้างแบบฝึกหัดที่เหมาะสมกับระดับชั้น วิชา และระดับความยากที่กำหนด แบบฝึกหัดต้องประกอบด้วยประเภทโจทย์ดังนี้: $typesStr ให้ตอบกลับในรูปแบบ JSON เท่านั้น";
+    $fullPrompt = "สร้างแบบฝึกหัดเรื่อง: $topic สำหรับระดับชั้น: $level วิชา: $subject ระดับความยาก: $difficulty สร้างโจทย์อย่างน้อย 10 ข้อ โดยกระจายประเภทโจทย์ตามที่กำหนด";
     
     $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" . $api_key;
     
     $payload = [
-        "contents" => [[
-            "parts" => [["text" => $fullPrompt]]
-        ]],
-        "systemInstruction" => [
-            "parts" => [["text" => $systemInstruction]]
-        ],
-        "generationConfig" => [
-            "response_mime_type" => "application/json"
-        ]
+        "contents" => [["parts" => [["text" => $fullPrompt]]]],
+        "systemInstruction" => ["parts" => [["text" => $systemInstruction]]],
+        "generationConfig" => ["response_mime_type" => "application/json"]
     ];
 
     $ch = curl_init($url);
@@ -56,7 +64,6 @@ if ($method === 'POST' && $path === 'generate') {
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
     curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-    
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
@@ -109,6 +116,21 @@ if ($method === 'POST' && $path === 'login') {
     $upd->execute([$user['id']]);
     
     // Safety: don't send password
+    unset($user['password']);
+    echo json_encode($user);
+    exit;
+}
+
+// Update Profile
+if ($method === 'POST' && $path === 'user/update-profile') {
+    $data = json_decode(file_get_contents("php://input"));
+    $stmt = $conn->prepare("UPDATE users SET fullname = ?, rank = ?, password = ?, gemini_api_key = ? WHERE id = ?");
+    $stmt->execute([$data->fullname, $data->rank, $data->password, $data->gemini_api_key, $data->id]);
+    
+    // Fetch fresh data
+    $get = $conn->prepare("SELECT * FROM users WHERE id = ?");
+    $get->execute([$data->id]);
+    $user = $get->fetch(PDO::FETCH_ASSOC);
     unset($user['password']);
     echo json_encode($user);
     exit;

@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     is_admin TINYINT(1) DEFAULT 0, -- 1 คือ Super Admin, 0 คือ ครูทั่วไป
     login_count INT DEFAULT 0, -- จำนวนการเข้าใช้งาน
     last_login TIMESTAMP NULL, -- เข้าใช้งานล่าสุด
+    gemini_api_key VARCHAR(255) DEFAULT NULL, -- API Key ส่วนตัว
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 

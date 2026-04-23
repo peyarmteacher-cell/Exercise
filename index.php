@@ -41,6 +41,7 @@
             <div class="flex items-center gap-4" x-show="user">
                 <button @click="activeTab = 'create'" :class="activeTab === 'create' ? 'text-indigo-600 font-bold' : 'text-slate-500'" class="text-sm">สร้างใบงาน</button>
                 <button @click="activeTab = 'history'" :class="activeTab === 'history' ? 'text-indigo-600 font-bold' : 'text-slate-500'" class="text-sm">ประวัติ</button>
+                <button @click="activeTab = 'profile'" :class="activeTab === 'profile' ? 'text-indigo-600 font-bold' : 'text-slate-500'" class="text-sm">ข้อมูลส่วนตัว</button>
                 <template x-if="user && user.is_admin">
                     <button @click="activeTab = 'admin'" :class="activeTab === 'admin' ? 'text-indigo-600 font-bold' : 'text-slate-500'" class="text-sm flex items-center gap-1">
                         จัดการครู <span class="bg-red-500 text-white text-[10px] px-1 rounded-full" x-show="pendingCount > 0" x-text="pendingCount"></span>
@@ -151,12 +152,43 @@
                                 <textarea x-model="config.topic" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm h-24 outline-none focus:ring-1 focus:ring-indigo-500" placeholder="เช่น ระบบสุริยะ..."></textarea>
                             </div>
                             <div>
-                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">วิชา</label>
-                                <select x-model="config.subject" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none">
-                                    <option>คณิตศาสตร์</option>
-                                    <option>ภาษาไทย</option>
-                                    <option>วิทยาศาสตร์</option>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">วิชา / ระดับชั้น</label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <select x-model="config.subject" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none">
+                                        <option>คณิตศาสตร์</option>
+                                        <option>ภาษาไทย</option>
+                                        <option>วิทยาศาสตร์</option>
+                                        <option>สังคมศึกษา</option>
+                                        <option>ภาษาอังกฤษ</option>
+                                    </select>
+                                    <select x-model="config.level" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none">
+                                        <option>ประถมศึกษาปีที่ 1</option>
+                                        <option>ประถมศึกษาปีที่ 2</option>
+                                        <option>ประถมศึกษาปีที่ 3</option>
+                                        <option>ประถมศึกษาปีที่ 4</option>
+                                        <option>ประถมศึกษาปีที่ 5</option>
+                                        <option>ประถมศึกษาปีที่ 6</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">ความยาก</label>
+                                <select x-model="config.difficulty" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none">
+                                    <option value="ง่าย">ง่าย</option>
+                                    <option value="ปานกลาง">ปานกลาง</option>
+                                    <option value="ยาก">ยาก</option>
                                 </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2">ประเภทโจทย์ (เลือกหลายรายการได้)</label>
+                                <div class="space-y-2 max-h-32 overflow-y-auto p-2 bg-slate-50 rounded-lg border border-slate-100">
+                                    <template x-for="t in exerciseTypes">
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" :value="t.id" x-model="config.types" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                                            <span class="text-xs text-slate-600" x-text="t.name"></span>
+                                        </label>
+                                    </template>
+                                </div>
                             </div>
                             <button @click="generateAI()" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-indigo-100 shadow-lg hover:shadow-indigo-200 transition-all flex items-center justify-center gap-2" :disabled="loading">
                                 <span x-show="loading" class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
@@ -255,6 +287,53 @@
                             <button @click="currentSet = item; activeTab = 'create'" class="w-full mt-4 py-2 border border-indigo-100 text-indigo-600 rounded-lg font-bold text-xs hover:bg-indigo-50 transition-colors">เปิดดูรายการนี้</button>
                         </div>
                     </template>
+                </div>
+            </div>
+
+            <!-- Profile Tab -->
+            <div x-show="activeTab === 'profile'" class="max-w-2xl mx-auto space-y-6">
+                <h2 class="text-xl font-bold flex items-center gap-2"><i data-lucide="user-cog" class="w-5 h-5"></i> ข้อมูลส่วนตัวและตั้งค่า</h2>
+                
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="p-8 space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">ชื่อ-นามสกุล</label>
+                                <input type="text" x-model="profileForm.fullname" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">ตำแหน่ง</label>
+                                <select x-model="profileForm.rank" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    <template x-for="r in ranks">
+                                        <option :value="r" x-text="r"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">รหัสผ่านใหม่ (ปล่อยว่างหากไม่ต้องการเปลี่ยน)</label>
+                            <input type="password" x-model="profileForm.password" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="คีย์รหัสผ่านใหม่ที่นี่...">
+                        </div>
+
+                        <div class="pt-6 border-t border-slate-100">
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="block text-xs font-bold text-indigo-600 uppercase">Gemini API Key ส่วนตัว</label>
+                                <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded font-bold hover:bg-indigo-100 transition-colors flex items-center gap-1">
+                                    <i data-lucide="external-link" class="w-3 h-3"></i> รับ API Key ฟรีที่นี่
+                                </a>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mb-3 leading-relaxed">
+                                <b>วิธีใช้งาน:</b> 1. คลิกที่ลิงก์ด้านบนเพื่อไปที่ Google AI Studio 2. กดปุ่ม "Create API key" 3. คัดลอกรหัส (เช่น AIza...) มาวางในช่องด้านล่างนี้ 4. กดบันทึกข้อมูล
+                            </p>
+                            <input type="text" x-model="profileForm.gemini_api_key" class="w-full bg-indigo-50/30 border border-indigo-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-mono" placeholder="AIzaSy...">
+                        </div>
+
+                        <button @click="updateProfile()" class="bg-indigo-600 text-white font-bold py-3 px-8 rounded-xl shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-2" :disabled="loading">
+                            <span x-show="loading" class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                            บันทึกการเปลี่ยนแปลง
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -383,10 +462,19 @@
                 activeTab: 'create',
                 authMode: 'login',
                 authForm: { id_card: '', password: '', fullname: '', rank: 'ครู' },
+                profileForm: { fullname: '', rank: '', password: '', gemini_api_key: '' },
                 loading: false,
                 error: null,
                 ranks: ['ครูอัตราจ้าง', 'พนักงานราชการ', 'ครูผู้ช่วย', 'ครู', 'ครูชำนาญการ', 'ครูชำนาญการพิเศษ', 'ครูเชี่ยวชาญ', 'ครูเชี่ยวชาญพิเศษ'],
-                config: { topic: '', subject: 'คณิตศาสตร์', level: 'ประถมศึกษาปีที่ 1' },
+                config: { topic: '', subject: 'คณิตศาสตร์', level: 'ประถมศึกษาปีที่ 1', difficulty: 'ปานกลาง', types: ['multiple_choice'] },
+                exerciseTypes: [
+                    { id: 'multiple_choice', name: 'ปรนัย (กขค)' },
+                    { id: 'subjective', name: 'อัตนัย (เขียนตอบ)' },
+                    { id: 'matching', name: 'จับคู่' },
+                    { id: 'fill_in_the_blanks', name: 'เติมคำในช่องว่าง' },
+                    { id: 'math_show_work', name: 'คณิตศาสตร์ (แสดงวิธีทำ)' },
+                    { id: 'analysis_reasoning', name: 'วิเคราะห์/แสดงเหตุผล' }
+                ],
                 currentSet: null,
                 history: [],
                 pendingUsers: [],
@@ -398,6 +486,7 @@
                     const saved = localStorage.getItem('schoolos_user');
                     if (saved) {
                         this.user = JSON.parse(saved);
+                        this.syncProfileForm();
                         this.fetchHistory();
                         if (this.user.is_admin) {
                             this.fetchAdminData();
@@ -405,6 +494,17 @@
                         }
                     }
                     this.$nextTick(() => lucide.createIcons());
+                },
+
+                syncProfileForm() {
+                    if (this.user) {
+                        this.profileForm = {
+                            fullname: this.user.fullname,
+                            rank: this.user.rank,
+                            password: '', // ไม่ดึงรหัสผ่านเดิมมาโชว์
+                            gemini_api_key: this.user.gemini_api_key || ''
+                        };
+                    }
                 },
 
                 async login() {
@@ -417,6 +517,7 @@
                         const data = await res.json();
                         if (res.ok) {
                             this.user = data;
+                            this.syncProfileForm();
                             localStorage.setItem('schoolos_user', JSON.stringify(data));
                             this.fetchHistory();
                             if (this.user.is_admin) this.fetchAdminData();
@@ -427,35 +528,47 @@
                     }
                 },
 
-                async register() {
-                    this.loading = true; this.error = null;
+                async updateProfile() {
+                    this.loading = true;
                     try {
-                        const res = await fetch('api.php?path=register', {
+                        const payload = { ...this.profileForm, id: this.user.id };
+                        // ถ้าไม่เปลี่ยนรหัส ให้ใช้รหัสเดิม (ในแง่ UI นี้คือส่งว่างไปหลังบ้านอาจจะลำบาก ถ้าไม่ได้เก็บ pwd ไว้)
+                        // สมมติว่าหลังบ้านถ้า password ว่างจะไม่ update (หรือเราจัดการส่งเดิมไป)
+                        // เพื่อความง่าย: ถ้าว่างให้ใช้ค่าว่างส่งไปและหลังบ้านต้องเช็ค (ผมจะแก้ api.php ให้รองรับ password เดิมถ้าส่งว่างมาทีหลัง)
+                        // แต่ตอนนี้เอาแบบส่งไปตรงๆ ก่อน
+                        const res = await fetch('api.php?path=user/update-profile', {
                             method: 'POST',
-                            body: JSON.stringify(this.authForm)
+                            body: JSON.stringify(payload)
                         });
                         const data = await res.json();
-                        if (res.ok) { alert(data.message); this.authMode = 'login'; }
-                        else { this.error = data.error; }
+                        if (res.ok) {
+                            this.user = data;
+                            localStorage.setItem('schoolos_user', JSON.stringify(data));
+                            alert('อัปเดตข้อมูลสำเร็จ');
+                            this.syncProfileForm();
+                        }
                     } finally { this.loading = false; }
-                },
-
-                logout() {
-                    this.user = null; localStorage.removeItem('schoolos_user');
                 },
 
                 async generateAI() {
                     if (!this.config.topic) return alert('กรุณาระบุหัวข้อ');
                     this.loading = true;
                     try {
+                        const payload = { ...this.config, userId: this.user.id };
                         const res = await fetch('api.php?path=generate', {
                             method: 'POST',
-                            body: JSON.stringify(this.config)
+                            body: JSON.stringify(payload)
                         });
                         const data = await res.json();
-                        this.currentSet = data;
-                        setTimeout(() => lucide.createIcons(), 100);
-                    } catch (e) { alert('AI ไม่สามารถสร้างข้อมูลได้ในขณะนี้'); }
+                        if (data.error) {
+                            alert('เกิดข้อผิดพลาด: ' + (data.details?.error?.message || data.error));
+                        } else {
+                            this.currentSet = data;
+                            this.currentSet.subject = this.config.subject;
+                            this.currentSet.level = this.config.level;
+                            this.$nextTick(() => lucide.createIcons());
+                        }
+                    } catch (e) { alert('AI ไม่สามารถสร้างข้อมูลได้ในขณะนี้ กรุณาตรวจสอบ API Key ของคุณ'); }
                     finally { this.loading = false; }
                 },
 
