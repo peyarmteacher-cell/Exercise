@@ -295,19 +295,52 @@
                     <template x-if="adminView === 'all'">
                         <div class="divide-y divide-slate-100">
                             <template x-for="p in allUsers" :key="p.id">
-                                <div class="p-6 flex items-center justify-between">
-                                    <div class="flex items-center gap-4">
-                                        <div class="w-10 h-10 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center font-bold" x-text="p.fullname.charAt(0)"></div>
-                                        <div>
-                                            <p class="font-bold text-sm" x-text="p.fullname"></p>
-                                            <p class="text-xs text-slate-500" x-text="p.rank"></p>
+                                <div class="p-6 hover:bg-slate-50 transition-colors">
+                                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                        <div class="flex items-center gap-4">
+                                            <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-bold text-lg" x-text="p.fullname.charAt(0)"></div>
+                                            <div>
+                                                <div class="flex items-center gap-2">
+                                                    <p class="font-bold text-slate-800" x-text="p.fullname"></p>
+                                                    <span :class="p.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'" 
+                                                          class="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase" x-text="p.status"></span>
+                                                </div>
+                                                <p class="text-xs text-slate-500" x-text="p.rank + ' | ID: ' + p.id_card"></p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="flex flex-wrap gap-4 items-center">
+                                            <!-- Stats Grid -->
+                                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                                <div class="text-center px-2">
+                                                    <p class="text-[9px] uppercase font-bold text-slate-400">เป็นสมาชิกมาแล้ว</p>
+                                                    <p class="text-sm font-bold text-indigo-600" x-text="p.membership_days + ' วัน'"></p>
+                                                </div>
+                                                <div class="text-center px-2 border-l border-slate-200">
+                                                    <p class="text-[9px] uppercase font-bold text-slate-400">ใบงานทั้งหมด</p>
+                                                    <p class="text-sm font-bold text-slate-700" x-text="p.exercise_count + ' เรื่อง'"></p>
+                                                </div>
+                                                <div class="text-center px-2 border-l border-slate-200">
+                                                    <p class="text-[9px] uppercase font-bold text-slate-400">เข้าใช้งาน</p>
+                                                    <p class="text-sm font-bold text-slate-700" x-text="p.login_count + ' ครั้ง'"></p>
+                                                </div>
+                                                <div class="text-center px-2 border-l border-slate-200">
+                                                    <p class="text-[9px] uppercase font-bold text-slate-400">ล่าสุดเมื่อ</p>
+                                                    <p class="text-[10px] font-bold text-slate-500" x-text="p.last_login ? new Date(p.last_login).toLocaleDateString('th-TH') : '-'"></p>
+                                                </div>
+                                            </div>
+
+                                            <div class="flex gap-2">
+                                                <button @click="deleteUser(p.id)" class="p-2 text-slate-300 hover:text-red-500 transition-colors">
+                                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="flex items-center gap-3">
-                                        <span :class="p.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'" class="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase" x-text="p.status"></span>
-                                        <button @click="deleteUser(p.id)" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                                    </div>
                                 </div>
+                            </template>
+                            <template x-if="allUsers.length === 0">
+                                <div class="py-20 text-center text-slate-300">ยังไม่มีสมาชิกในระบบ</div>
                             </template>
                         </div>
                     </template>

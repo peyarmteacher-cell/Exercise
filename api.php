@@ -103,6 +103,10 @@ if ($method === 'POST' && $path === 'login') {
         echo json_encode(["error" => "บัญชีของคุณยังไม่ได้รับการอนุมัติ"]);
         exit;
     }
+
+    // Update login count and last login
+    $upd = $conn->prepare("UPDATE users SET login_count = login_count + 1, last_login = CURRENT_TIMESTAMP WHERE id = ?");
+    $upd->execute([$user['id']]);
     
     // Safety: don't send password
     unset($user['password']);
@@ -129,7 +133,14 @@ if ($method === 'POST' && $path === 'admin/approve-user') {
 
 // User Management (Super Admin)
 if ($method === 'GET' && $path === 'admin/users') {
-    $stmt = $conn->prepare("SELECT id, id_card, fullname, rank, status, is_admin, created_at FROM users WHERE is_admin = 0 ORDER BY created_at DESC");
+    $stmt = $conn->prepare("
+        SELECT u.id, u.id_card, u.fullname, u.rank, u.status, u.is_admin, u.created_at, u.login_count, u.last_login,
+        (SELECT COUNT(*) FROM exercises WHERE user_id = u.id) as exercise_count,
+        DATEDIFF(CURRENT_TIMESTAMP, u.created_at) as membership_days
+        FROM users u 
+        WHERE u.is_admin = 0 
+        ORDER BY u.created_at DESC
+    ");
     $stmt->execute();
     echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
     exit;
