@@ -36,13 +36,16 @@ if ($method === 'POST' && $path === 'generate') {
     $selectedTypes = isset($data->types) ? $data->types : [];
     
     // API KEY Logic
-    $api_key = GEMINI_API_KEY;
+    $api_key = getenv('GEMINI_API_KEY') ?: GEMINI_API_KEY;
+    $key_source = "system";
+
     if ($userId) {
         $uStmt = $conn->prepare("SELECT gemini_api_key FROM users WHERE id = ?");
         $uStmt->execute([$userId]);
         $uData = $uStmt->fetch(PDO::FETCH_ASSOC);
         if ($uData && !empty($uData['gemini_api_key'])) {
             $api_key = $uData['gemini_api_key'];
+            $key_source = "user";
         }
     }
     
@@ -56,7 +59,9 @@ if ($method === 'POST' && $path === 'generate') {
     $payload = [
         "contents" => [["parts" => [["text" => $fullPrompt]]]],
         "systemInstruction" => ["parts" => [["text" => $systemInstruction]]],
-        "generationConfig" => ["response_mime_type" => "application/json"]
+        "generationConfig" => [
+            "response_mime_type" => "application/json"
+        ]
     ];
 
     $ch = curl_init($url);
@@ -73,7 +78,13 @@ if ($method === 'POST' && $path === 'generate') {
         echo $resData->candidates[0]->content->parts[0]->text;
     } else {
         http_response_code($httpCode);
-        echo json_encode(["error" => "AI Generation failed", "details" => json_decode($response)]);
+        $masked_key = substr($api_key, 0, 4) . "..." . substr($api_key, -4);
+        echo json_encode([
+            "error" => "AI Generation failed", 
+            "key_source" => $key_source,
+            "attempted_key" => $masked_key,
+            "details" => json_decode($response)
+        ]);
     }
     exit;
 }

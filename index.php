@@ -291,7 +291,10 @@
                         });
                         const data = await res.json();
                         if (data.error) {
-                            alert('เกิดข้อผิดพลาด: ' + (data.details?.error?.message || data.error));
+                            let msg = data.error;
+                            if (data.details?.error?.message) msg += ': ' + data.details.error.message;
+                            if (data.attempted_key) msg += `\n(Key used: ${data.attempted_key})`;
+                            alert('เกิดข้อผิดพลาด: ' + msg);
                         } else {
                             this.currentSet = data;
                             this.currentSet.subject = this.config.subject;
