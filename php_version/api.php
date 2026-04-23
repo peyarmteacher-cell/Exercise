@@ -26,22 +26,26 @@ $path = isset($_GET['path']) ? $_GET['path'] : '';
 // Generate AI (Proxy to Gemini)
 if ($method === 'POST' && $path === 'generate') {
     $data = json_decode(file_get_contents("php://input"));
-    $topic = $data->topic;
-    $level = $data->level;
-    $subject = $data->subject;
+    $topic = htmlspecialchars($data->topic);
+    $level = htmlspecialchars($data->level);
+    $subject = htmlspecialchars($data->subject);
     
-    // API KEY - ควรเก็บเป็น Environment Variable หรือค่าคงที่ใน PHP
-    $api_key = "YOUR_GEMINI_API_KEY_HERE";
+    // API KEY - คุณต้องใส่ API Key ของ Google AI Studio ที่นี่
+    $api_key = "!deQn5cB?B7gabu8"; // หมายเหตุ: เปลี่ยนเป็น Gemini API Key ของคุณ
     
-    $prompt = "คุณคือครูผู้เชี่ยวชาญการออกแบบใบงานสำหรับเด็กประถมในประเทศไทย... (ใส่ Prompt ยาวๆ ของคุณที่นี่)";
-    // ... (รายละเอียด Prompt เดียวกับที่ใช้ใน React)
+    $systemInstruction = "คุณคือผู้เชี่ยวชาญด้านการศึกษาสำหรับนักเรียนระดับประถมศึกษา หน้าที่ของคุณคือสร้างแบบฝึกหัดที่เหมาะสมกับระดับชั้นและวิชาที่กำหนด แบบฝึกหัดต้องมีความหลากหลายประกอบด้วย: 1. ปรนัย (multiple_choice) 2. อัตนัย (subjective) 3. จับคู่ (matching) 4. เติมคำ (fill_in_the_blanks) 5. คำนวณคณิตศาสตร์แบบแสดงวิธีทำ (math_show_work) 6. วิเคราะห์แสดงเหตุผล (analysis_reasoning) ให้ตอบกลับในรูปแบบ JSON เท่านั้น";
+    
+    $fullPrompt = "สร้างแบบฝึกหัดเรื่อง: $topic สำหรับระดับชั้น: $level วิชา: $subject สร้างโจทย์อย่างน้อย 10 ข้อ โดยกระจายประเภทโจทย์ตามที่กำหนด";
     
     $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" . $api_key;
     
     $payload = [
         "contents" => [[
-            "parts" => [["text" => "หัวข้อ: $topic, ระดับ: $level, วิชา: $subject. สร้าง JSON ตามรูปแบบที่กำหนด..."]]
+            "parts" => [["text" => $fullPrompt]]
         ]],
+        "systemInstruction" => [
+            "parts" => [["text" => $systemInstruction]]
+        ],
         "generationConfig" => [
             "response_mime_type" => "application/json"
         ]
@@ -62,7 +66,7 @@ if ($method === 'POST' && $path === 'generate') {
         echo $resData->candidates[0]->content->parts[0]->text;
     } else {
         http_response_code($httpCode);
-        echo json_encode(["error" => "AI Generation failed", "details" => $response]);
+        echo json_encode(["error" => "AI Generation failed", "details" => json_decode($response)]);
     }
     exit;
 }

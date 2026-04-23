@@ -1,5 +1,6 @@
-CREATE DATABASE IF NOT EXISTS school_exercises;
-USE school_exercises;
+-- คำแนะนำ: 
+-- 1. กรุณาสร้างฐานข้อมูลชื่อ schoolos_Exercise ใน PhpMyAdmin หรือ Control Panel ของโฮสติ้งก่อน
+-- 2. เลือกฐานข้อมูลนั้น แล้วจึงนำโค้ดด้านล่างนี้ไปรัน (Import) เพื่อสร้างตาราง
 
 -- 1. ตารางสำหรับเก็บข้อมูลสมาชิก (คุณครู และ Super Admin)
 CREATE TABLE IF NOT EXISTS users (
