@@ -37,7 +37,7 @@ if ($method === 'POST' && $path === 'generate') {
     
     // API KEY Logic
     $api_key = getenv('GEMINI_API_KEY') ?: GEMINI_API_KEY;
-    $key_source = "system";
+    $key_source = "user"; // Default to user for debugging
 
     if ($userId) {
         $uStmt = $conn->prepare("SELECT gemini_api_key FROM users WHERE id = ?");
@@ -46,21 +46,70 @@ if ($method === 'POST' && $path === 'generate') {
         if ($uData && !empty($uData['gemini_api_key'])) {
             $api_key = $uData['gemini_api_key'];
             $key_source = "user";
+        } else {
+            $key_source = "system";
         }
     }
     
-    $typesStr = !empty($selectedTypes) ? implode(", ", $selectedTypes) : "ปรนัย, อัตนัย, จับคู่, เติมคำ, คำนวณ, วิเคราะห์";
+    $typesStr = !empty($selectedTypes) ? implode(", ", $selectedTypes) : "ปรนัย (multiple_choice), อัตนัย (subjective), จับคู่ (matching), เติมคำ (fill_in_the_blanks)";
 
-    $systemInstruction = "คุณคือผู้เชี่ยวชาญด้านการศึกษาสำหรับนักเรียนระดับประถมศึกษา หน้าที่ของคุณคือสร้างแบบฝึกหัดที่เหมาะสมกับระดับชั้น วิชา และระดับความยากที่กำหนด แบบฝึกหัดต้องประกอบด้วยประเภทโจทย์ดังนี้: $typesStr ให้ตอบกลับในรูปแบบ JSON เท่านั้น";
-    $fullPrompt = "สร้างแบบฝึกหัดเรื่อง: $topic สำหรับระดับชั้น: $level วิชา: $subject ระดับความยาก: $difficulty สร้างโจทย์อย่างน้อย 10 ข้อ โดยกระจายประเภทโจทย์ตามที่กำหนด";
+    $systemInstruction = "คุณคือผู้เชี่ยวชาญด้านการสร้างเนื้อหาการศึกษาสำหรับกระทรวงศึกษาธิการไทย หน้าที่ของคุณคือสร้างแบบฝึกหัดในภาษาไทยตามมาตรฐานหลักสูตรแกนกลาง โดยให้ระบุ มาตรฐานและตัวชี้วัดแบบย่อ ในฟิลด์ indicators และในส่วนของ explanation ให้เขียนคำอธิบายเหตุผลของคำตอบที่ชัดเจนเพื่อให้คุณครูนำไปใช้อธิบายให้นักเรียนฟังต่อได้";
     
+    $fullPrompt = "สร้างแบบฝึกหัดเรื่อง: '$topic' สำหรับระดับชั้น: $level วิชา: $subject ระดับความยาก: $difficulty
+    รูปแบบโจทย์ที่ต้องการ: $typesStr
+    จำนวนโจทย์: อย่างน้อย 10 ข้อ โดยกระจายประเภทโจทย์ตามที่กำหนด
+    ให้ตอบกลับเป็น JSON ภาษาไทยตามโครงสร้างที่กำหนดเท่านั้น";
+    
+    // ใช้รุ่น v1beta สำหรับการรองรับ Response Schema ที่ดีกว่า
     $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" . $api_key;
     
     $payload = [
         "contents" => [["parts" => [["text" => $fullPrompt]]]],
         "systemInstruction" => ["parts" => [["text" => $systemInstruction]]],
         "generationConfig" => [
-            "response_mime_type" => "application/json"
+            "response_mime_type" => "application/json",
+            "response_schema" => [
+                "type" => "object",
+                "properties" => [
+                    "title" => ["type" => "string"],
+                    "description" => ["type" => "string"],
+                    "indicators" => ["type" => "string", "description" => "ตัวอย่าง: มาตรฐาน ค 1.1 ป.1/1"],
+                    "questions" => [
+                        "type" => "array",
+                        "items" => [
+                            "type" => "object",
+                            "properties" => [
+                                "type" => ["type" => "string", "enum" => ["multiple_choice", "subjective", "matching", "fill_in_the_blanks", "math_show_work", "analysis_reasoning"]],
+                                "question" => ["type" => "string"],
+                                "options" => [
+                                    "type" => "array",
+                                    "items" => [
+                                        "type" => "object",
+                                        "properties" => [
+                                            "id" => ["type" => "string"],
+                                            "text" => ["type" => "string"]
+                                        ]
+                                    ]
+                                ],
+                                "pairs" => [
+                                    "type" => "array",
+                                    "items" => [
+                                        "type" => "object",
+                                        "properties" => [
+                                            "left" => ["type" => "string"],
+                                            "right" => ["type" => "string"]
+                                        ]
+                                    ]
+                                ],
+                                "answer" => ["type" => "string"],
+                                "explanation" => ["type" => "string"]
+                            ],
+                            "required" => ["type", "question", "answer", "explanation"]
+                        ]
+                    ]
+                ],
+                "required" => ["title", "description", "questions", "indicators"]
+            ]
         ]
     ];
 
@@ -75,7 +124,11 @@ if ($method === 'POST' && $path === 'generate') {
 
     if ($httpCode === 200) {
         $resData = json_decode($response);
-        echo $resData->candidates[0]->content->parts[0]->text;
+        if (isset($resData->candidates[0]->content->parts[0]->text)) {
+            echo $resData->candidates[0]->content->parts[0]->text;
+        } else {
+            echo json_encode(["error" => "Unexpected AI Response format", "raw" => $resData]);
+        }
     } else {
         http_response_code($httpCode);
         $masked_key = $api_key ? (substr($api_key, 0, 4) . "..." . substr($api_key, -4)) : "None";
