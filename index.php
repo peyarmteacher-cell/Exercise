@@ -61,9 +61,15 @@
                         <p class="text-xs font-bold leading-none" x-text="user.fullname"></p>
                         <p class="text-[10px] text-slate-400 mt-1 uppercase" x-text="user.rank"></p>
                     </div>
-                    <button @click="logout()" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200" title="ออกจากระบบ">
-                        <i data-lucide="log-out" class="w-4 h-4"></i>
-                    </button>
+                    <!-- Tools -->
+                    <div class="flex items-center gap-2">
+                        <button @click="clearAllData()" class="px-3 py-1 text-[10px] font-bold text-red-500 hover:bg-red-50 rounded-lg border border-red-100 transition-colors flex items-center gap-1" title="ล้างแคชและเริ่มใหม่">
+                            <i data-lucide="trash-2" class="w-3 h-3"></i> ล้างแคช
+                        </button>
+                        <button @click="logout()" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200" title="ออกจากระบบ">
+                            <i data-lucide="log-out" class="w-4 h-4"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -285,63 +291,65 @@
                     const apiKey = this.user.gemini_api_key;
                     if (!apiKey) return alert('กรุณาระบุ Gemini API Key ในหน้าข้อมูลส่วนตัวก่อนใช้งาน');
                     
+                    // ป้องกันการใช้คีย์ตัวปัญหาเดิม
+                    if (apiKey.includes('dmhRSY')) {
+                        return alert('ตรวจพบว่าคุณกำลังใช้ API Key เดิมที่ถูกระงับ (ลงท้ายด้วย dmhRSY) \nกรุณาเปลี่ยนเป็นคีย์ใหม่ในหน้าข้อมูลส่วนตัวก่อนครับ');
+                    }
+
                     this.loading = true;
                     try {
                         const typesStr = this.config.types.join(", ");
-                        const systemInstruction = `คุณคือผู้เชี่ยวชาญด้านการสร้างเนื้อหาการศึกษาไทย สร้างแบบฝึกหัดภาษาไทยตามหลักสูตรแกนกลาง ให้ระบุตัวชี้วัดเบื้องต้น และคำอธิบายคำตอบที่ชัดเจน`;
-                        const fullPrompt = `สร้างแบบฝึกหัดเรื่อง: '${this.config.topic}' สำหรับระดับชั้น: ${this.config.level} วิชา: ${this.config.subject} ระดับความยาก: ${this.config.difficulty}
+                        const systemInstruction = `คุณคือผู้เชี่ยวชาญด้านการสร้างเนื้อหาการศึกษาไทย สร้างแบบฝึกหัดภาษาไทยตามหลักสูตรแกนกลาง ให้ตอบกลับเป็น JSON ภาษาไทยเท่านั้น`;
+                        const fullPrompt = `สร้างแบบฝึกหัดเรื่อง: '${this.config.topic}' สำหรับระดับชั้น: ${this.config.level} วิชา: ${this.config.subject}
                         รูปแบบโจทย์: ${typesStr} | จำนวน: 10 ข้อ
-                        ให้ตอบกลับเป็น JSON ภาษาไทยที่มีโครงสร้างดังนี้:
+                        โครงสร้าง JSON:
                         {
-                          "title": "หัวข้อใบงาน",
+                          "title": "หัวข้อ",
                           "description": "คำชี้แจง",
-                          "indicators": "มาตรฐาน/ตัวชี้วัด",
+                          "indicators": "ตัวชี้วัด",
                           "questions": [
                             {
-                              "type": "ประเภทโจทย์ (multiple_choice|subjective|matching|fill_in_the_blanks)",
+                              "type": "ประเภท",
                               "question": "โจทย์",
                               "options": [{"id":"a", "text":"ตัวเลือก"}],
-                              "pairs": [{"left":"ซ้าย", "right":"ขวา"}],
                               "answer": "เฉลย",
                               "explanation": "คำอธิบาย"
                             }
                           ]
                         }`;
 
-                        // เรียกตรงไปยัง Google API จากเบราว์เซอร์ (Client-side)
-                        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+                        // ใช้รุ่น v1 (Stable)
+                        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
                         const response = await fetch(url, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 contents: [{ parts: [{ text: fullPrompt }] }],
                                 systemInstruction: { parts: [{ text: systemInstruction }] },
-                                generationConfig: {
-                                    response_mime_type: "application/json"
-                                }
+                                generationConfig: { response_mime_type: "application/json" }
                             })
                         });
 
                         const resData = await response.json();
-                        
-                        if (!response.ok) {
-                            throw new Error(resData.error?.message || 'AI API Error');
-                        }
+                        if (!response.ok) throw new Error(resData.error?.message || 'AI API Error');
 
                         const aiText = resData.candidates[0].content.parts[0].text;
-                        const exerciseData = JSON.parse(aiText);
-
-                        this.currentSet = exerciseData;
+                        this.currentSet = JSON.parse(aiText);
                         this.currentSet.subject = this.config.subject;
                         this.currentSet.level = this.config.level;
-                        
                         this.$nextTick(() => lucide.createIcons());
                         
                     } catch (e) {
-                        console.error(e);
-                        alert('เกิดข้อผิดพลาดในการเรียก AI: ' + e.message + '\nกรุณาตรวจสอบความถูกต้องของ API Key และโควต้าใช้งานของคุณ');
+                        alert('เกิดข้อผิดพลาด: ' + e.message + '\n\nคีย์ที่คุณกำลังใช้คือ: ' + apiKey.substring(0,6) + '...' + apiKey.substring(apiKey.length - 4));
                     } finally {
                         this.loading = false;
+                    }
+                },
+
+                clearAllData() {
+                    if(confirm('ยืนยันล้างข้อมูลแคชและออกจากระบบ?\n(วิธีนี้จะช่วยแก้ปัญหาหากระบบจำคีย์เก่าตัวที่เสียอยู่)')) {
+                        localStorage.clear();
+                        window.location.reload();
                     }
                 },
 
