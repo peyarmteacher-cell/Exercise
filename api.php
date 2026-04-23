@@ -170,21 +170,20 @@ if ($method === 'POST' && $path === 'admin/approve-user') {
 
 if ($method === 'POST' && $path === 'admin/migrate') {
     try {
-        // เพิ่มคอลัมน์ login_count ถ้ายังไม่มี
-        $conn->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS login_count INT DEFAULT 0 AFTER is_admin");
-        // เพิ่มคอลัมน์ last_login ถ้ายังไม่มี
-        $conn->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP NULL AFTER login_count");
+        // เพิ่มคอลัมน์สำคัญต่างๆ
+        $queries = [
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS login_count INT DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP NULL",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS gemini_api_key TEXT NULL"
+        ];
+        
+        foreach($queries as $q) {
+            try { $conn->exec($q); } catch(Exception $e) {}
+        }
         
         echo json_encode(["success" => true, "message" => "ปรับปรุงฐานข้อมูลเรียบร้อยแล้ว"]);
     } catch (PDOException $e) {
-        // สำหรับ MySQL บางเวอร์ชันที่อาจไม่รองรับ ADD COLUMN IF NOT EXISTS ให้ลองใช้แบบปกติ (จะ Error ถ้ามีอยู่แล้ว)
-        try {
-            $conn->exec("ALTER TABLE users ADD COLUMN login_count INT DEFAULT 0");
-            $conn->exec("ALTER TABLE users ADD COLUMN last_login TIMESTAMP NULL");
-            echo json_encode(["success" => true, "message" => "ปรับปรุงโครงสร้างใหม่เรียบร้อย"]);
-        } catch (Exception $ex) {
-            echo json_encode(["success" => true, "message" => "ฐานข้อมูลเป็นปัจจุบันอยู่แล้ว"]);
-        }
+        echo json_encode(["error" => "Migration failed: " . $e->getMessage()]);
     }
     exit;
 }
