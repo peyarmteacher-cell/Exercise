@@ -287,72 +287,65 @@
                 },
 
                 async generateAI() {
-                    if (!this.config.topic) return alert('กรุณาระบุหัวข้อ');
-                    const apiKey = this.user.gemini_api_key;
+                    const apiKey = (this.user.gemini_api_key || '').trim();
                     if (!apiKey) return alert('กรุณาระบุ Gemini API Key ในหน้าข้อมูลส่วนตัวก่อนใช้งาน');
                     
+                    if (!this.config.topic) return alert('กรุณาระบุหัวข้อ');
                     this.loading = true;
                     try {
                         const typesStr = this.config.types.join(", ");
-                        const fullPrompt = `คุณคือผู้เชี่ยวชาญการศึกษาไทย 
-                        ภารกิจ: สร้างแบบฝึกหัดเรื่อง '${this.config.topic}' ชั้น ${this.config.level} วิชา ${this.config.subject}
-                        รูปแบบ: ${typesStr} | จำนวน: 10 ข้อ
+                        const systemInstructionText = `คุณคือผู้เชี่ยวชาญการศึกษาไทย สร้างแบบฝึกหัดภาษาไทยตามหลักสูตรแกนกลาง ให้ตอบกลับเป็น JSON ภาษาไทยเท่านั้น`;
+                        const fullPrompt = `สร้างแบบฝึกหัดเรื่อง '${this.config.topic}' ชั้น ${this.config.level} วิชา ${this.config.subject} รูปแบบ: ${typesStr} จำนวน: 10 ข้อ`;
                         
-                        ให้ตอบกลับเป็น JSON ภาษาไทยที่มีโครงสร้างดังนี้เท่านั้น (ห้ามมีข้อความอื่นนอกเหนือจาก JSON):
-                        {
-                          "title": "หัวข้อ",
-                          "description": "คำชี้แจง",
-                          "indicators": "ตัวชี้วัด",
-                          "questions": [
-                            {
-                              "type": "ประเภทของข้อสอบ",
-                              "question": "โจทย์",
-                              "options": [{"id":"a", "text":"ตัวเลือก"}],
-                              "answer": "เฉลย",
-                              "explanation": "คำอธิบาย"
-                            }
-                          ]
-                        }`;
-
-                        // รายชื่อ Model ที่จะลองเรียก (ลองทีละตัวจนกว่าจะผ่าน)
-                        const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
-                        let errorLog = '';
-                        let success = false;
-
-                        for (const modelName of modelsToTry) {
-                            try {
-                                const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-                                const response = await fetch(url, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        contents: [{ parts: [{ text: fullPrompt }] }]
-                                    })
-                                });
-
-                                const resData = await response.json();
-                                if (!response.ok) {
-                                    errorLog += `\n- ${modelName}: ${resData.error?.message || 'Error'}`;
-                                    continue; // ลองตัวถัดไป
+                        const responseSchema = {
+                            type: "object",
+                            properties: {
+                                title: { type: "string" },
+                                description: { type: "string" },
+                                indicators: { type: "string" },
+                                questions: {
+                                    type: "array",
+                                    items: {
+                                        type: "object",
+                                        properties: {
+                                            type: { type: "string" },
+                                            question: { type: "string" },
+                                            options: { type: "array", items: { type: "object", properties: { id: { type: "string" }, text: { type: "string" } } } },
+                                            answer: { type: "string" },
+                                            explanation: { type: "string" }
+                                        },
+                                        required: ["type", "question", "answer", "explanation"]
+                                    }
                                 }
+                            },
+                            required: ["title", "description", "questions", "indicators"]
+                        };
 
-                                let aiText = resData.candidates[0].content.parts[0].text;
-                                aiText = aiText.replace(/```json/g, '').replace(/```/g, '').trim();
-                                
-                                this.currentSet = JSON.parse(aiText);
-                                this.currentSet.subject = this.config.subject;
-                                this.currentSet.level = this.config.level;
-                                this.$nextTick(() => lucide.createIcons());
-                                success = true;
-                                break; // สำเร็จแล้ว หยุดวนลูบ
-                            } catch (err) {
-                                errorLog += `\n- ${modelName}: ${err.message}`;
+                        // ใช้ REST API แบบเป๊ะๆ (ต้องเป็น snake_case)
+                        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+                        const payload = {
+                            contents: [{ parts: [{ text: fullPrompt }] }],
+                            system_instruction: { parts: [{ text: systemInstructionText }] },
+                            generation_config: {
+                                response_mime_type: "application/json",
+                                response_schema: responseSchema
                             }
-                        }
+                        };
 
-                        if (!success) {
-                            throw new Error('ไม่สามารถเข้าถึง AI รุ่นใดได้เลย:' + errorLog);
-                        }
+                        const response = await fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+
+                        const resData = await response.json();
+                        if (!response.ok) throw new Error(resData.error?.message || 'AI API Error');
+
+                        let aiText = resData.candidates[0].content.parts[0].text;
+                        this.currentSet = JSON.parse(aiText);
+                        this.currentSet.subject = this.config.subject;
+                        this.currentSet.level = this.config.level;
+                        this.$nextTick(() => lucide.createIcons());
                         
                     } catch (e) {
                         alert('เกิดข้อผิดพลาด: ' + e.message);
