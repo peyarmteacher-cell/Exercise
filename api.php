@@ -54,7 +54,7 @@ if ($method === 'POST' && $path === 'generate') {
     $systemInstruction = "คุณคือผู้เชี่ยวชาญด้านการศึกษาสำหรับนักเรียนระดับประถมศึกษา หน้าที่ของคุณคือสร้างแบบฝึกหัดที่เหมาะสมกับระดับชั้น วิชา และระดับความยากที่กำหนด แบบฝึกหัดต้องประกอบด้วยประเภทโจทย์ดังนี้: $typesStr ให้ตอบกลับในรูปแบบ JSON เท่านั้น";
     $fullPrompt = "สร้างแบบฝึกหัดเรื่อง: $topic สำหรับระดับชั้น: $level วิชา: $subject ระดับความยาก: $difficulty สร้างโจทย์อย่างน้อย 10 ข้อ โดยกระจายประเภทโจทย์ตามที่กำหนด";
     
-    $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" . $api_key;
+    $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" . $api_key;
     
     $payload = [
         "contents" => [["parts" => [["text" => $fullPrompt]]]],
