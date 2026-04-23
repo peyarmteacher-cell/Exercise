@@ -374,12 +374,11 @@
                         const res = await fetch('api.php?path=admin/migrate', { method: 'POST' });
                         const data = await res.json();
                         alert(data.message);
-                        this.fetchAdminData();
+                        await this.fetchAdminData();
                     } catch (e) { alert('เกิดข้อผิดพลาดในการปรับปรุงฐานข้อมูล'); }
                     finally { this.loading = false; }
                 },
 
-                // ... (rest of methods)
                 user: null,
                 activeTab: 'create',
                 authMode: 'login',
@@ -396,17 +395,16 @@
                 pendingCount: 0,
 
                 async init() {
-                    lucide.createIcons();
                     const saved = localStorage.getItem('schoolos_user');
                     if (saved) {
                         this.user = JSON.parse(saved);
                         this.fetchHistory();
                         if (this.user.is_admin) {
                             this.fetchAdminData();
-                            // ตรวจสอบสมาชิกใหม่ทุกๆ 30 วินาที
                             setInterval(() => this.fetchAdminData(), 30000);
                         }
                     }
+                    this.$nextTick(() => lucide.createIcons());
                 },
 
                 async login() {
@@ -421,8 +419,12 @@
                             this.user = data;
                             localStorage.setItem('schoolos_user', JSON.stringify(data));
                             this.fetchHistory();
+                            if (this.user.is_admin) this.fetchAdminData();
                         } else { this.error = data.error; }
-                    } finally { this.loading = false; }
+                    } finally { 
+                        this.loading = false;
+                        this.$nextTick(() => lucide.createIcons());
+                    }
                 },
 
                 async register() {
@@ -482,7 +484,7 @@
                     this.pendingCount = this.pendingUsers.length;
                     const aRes = await fetch('api.php?path=admin/users');
                     this.allUsers = await aRes.json();
-                    setTimeout(() => lucide.createIcons(), 100);
+                    this.$nextTick(() => lucide.createIcons());
                 },
 
                 async updateStatus(id, status) {
