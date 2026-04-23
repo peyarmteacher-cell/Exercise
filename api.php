@@ -78,10 +78,11 @@ if ($method === 'POST' && $path === 'generate') {
         echo $resData->candidates[0]->content->parts[0]->text;
     } else {
         http_response_code($httpCode);
-        $masked_key = substr($api_key, 0, 4) . "..." . substr($api_key, -4);
+        $masked_key = $api_key ? (substr($api_key, 0, 4) . "..." . substr($api_key, -4)) : "None";
         echo json_encode([
             "error" => "AI Generation failed", 
             "key_source" => $key_source,
+            "received_user_id" => $userId,
             "attempted_key" => $masked_key,
             "details" => json_decode($response)
         ]);

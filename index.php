@@ -291,10 +291,15 @@
                         });
                         const data = await res.json();
                         if (data.error) {
-                            let msg = data.error;
+                            let msg = typeof data.error === 'string' ? data.error : 'AI Generation failed';
                             if (data.details?.error?.message) msg += ': ' + data.details.error.message;
-                            if (data.attempted_key) msg += `\n(Key used: ${data.attempted_key})`;
-                            alert('เกิดข้อผิดพลาด: ' + msg);
+                            
+                            let debug = `\n\n--- Debug Info ---`;
+                            debug += `\nSource: ${data.key_source === 'user' ? 'คีย์ส่วนตัวของคุณครู' : 'คีย์หลักของระบบ'}`;
+                            if (data.attempted_key) debug += `\nKey Used: ${data.attempted_key}`;
+                            if (data.received_user_id) debug += `\nUser ID: ${data.received_user_id}`;
+                            
+                            alert('เกิดข้อผิดพลาด: ' + msg + debug);
                         } else {
                             this.currentSet = data;
                             this.currentSet.subject = this.config.subject;
